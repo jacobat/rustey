@@ -1,8 +1,5 @@
-use log::info;
 use ratatui::prelude::*;
-use simplelog::{Config, LevelFilter, WriteLogger};
 use std::any::Any;
-use std::fs::File;
 use std::io;
 use std::sync::{
     Arc,
@@ -132,12 +129,6 @@ where
     M: 'static + Send + Sync,
     T: 'static + Send + Sync,
 {
-    let _ = WriteLogger::init(
-        LevelFilter::Info,
-        Config::default(),
-        File::create("my_rust_bin.log").unwrap(),
-    );
-
     let mut terminal = ratatui::init();
 
     let (mut model, cmd) = app.init();
@@ -158,7 +149,6 @@ where
     handle(cmd, sender.clone());
 
     loop {
-        info!("Looping");
         terminal.draw(|f| app.view(f, &model))?;
         let msg = receiver.recv().unwrap();
         let cmd = app.update(&mut model, msg, &quit_program);
@@ -178,7 +168,6 @@ where
             s.run(sender.clone());
         });
         subs.append(&mut new_subs);
-        info!("Subscriptions: {:?}", subs.len());
 
         handle(cmd, sender.clone());
 
