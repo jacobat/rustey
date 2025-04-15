@@ -55,7 +55,7 @@ pub trait TearApp<T, M> {
     fn init(&self) -> (T, Cmd<M>);
     fn update(&self, model: &mut T, msg: M, quit_program: &QuitFlag) -> Cmd<M>;
     fn subscriptions(&self, model: &T) -> Vec<Box<dyn Subscription<M>>>;
-    fn view(&self, frame: &mut Frame, model: &T);
+    fn view(&self, frame: &mut Frame, model: &mut T);
 }
 
 pub type Cmd<T> = Option<Box<dyn Command<T>>>;
@@ -149,7 +149,7 @@ where
     handle(cmd, sender.clone());
 
     loop {
-        terminal.draw(|f| app.view(f, &model))?;
+        terminal.draw(|f| app.view(f, &mut model))?;
         let msg = receiver.recv().unwrap();
         let cmd = app.update(&mut model, msg, &quit_program);
         let new_subscriptions = app.subscriptions(&model);
