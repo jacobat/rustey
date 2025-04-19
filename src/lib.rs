@@ -127,7 +127,6 @@ where
 pub fn run<T, M>(app: &dyn TearApp<T, M>) -> io::Result<()>
 where
     M: 'static + Send + Sync,
-    T: 'static + Send + Sync,
 {
     let mut terminal = ratatui::init();
 
