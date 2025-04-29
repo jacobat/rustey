@@ -1,5 +1,5 @@
 [package]
-name = "tear"
+name = "rustey"
 version = "0.1.0"
 edition = "2024"
 

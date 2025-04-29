@@ -51,7 +51,7 @@ pub trait Subscription<T>: DynEq + Send + Sync {
 pub trait Command<T>: Send + Sync {
     fn run(&self, sender: mpsc::Sender<T>);
 }
-pub trait TearApp<T, M> {
+pub trait RusteyApp<T, M> {
     fn init(&self) -> (T, Cmd<M>);
     fn update(&self, model: &mut T, msg: M, quit_program: &QuitFlag) -> Cmd<M>;
     fn subscriptions(&self, model: &T) -> Vec<Box<dyn Subscription<M>>>;
@@ -124,7 +124,7 @@ where
     }
 }
 
-pub fn run<T, M>(app: &dyn TearApp<T, M>) -> io::Result<()>
+pub fn run<T, M>(app: &dyn RusteyApp<T, M>) -> io::Result<()>
 where
     M: 'static + Send + Sync,
 {

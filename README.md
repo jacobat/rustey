@@ -1,4 +1,4 @@
-# Tear
+# Rustey
 
 The Elm Architecture for Rust.
 
@@ -15,6 +15,4 @@ application is subscribed to. The `subscriptions` function will emit a number
 of such functions based on the state of the model. Each function will run in a
 thread of it's own and emit events as relevant.
 
-The model is updated by
-the
-`update` function as it reacts to messages.
+The model is updated by the `update` function as it reacts to messages.
