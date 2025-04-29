@@ -16,3 +16,7 @@ of such functions based on the state of the model. Each function will run in a
 thread of it's own and emit events as relevant.
 
 The model is updated by the `update` function as it reacts to messages.
+
+## Examplea application
+
+An example application can be found at https://github.com/jacobat/rustey_list
