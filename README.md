@@ -145,6 +145,35 @@ fn main() -> std::io::Result<()> {
 And with this we have a full implementation of a TUI counter application in
 less than 100 lines of code.
 
+## Run loop
+
+The main loop is initialized and runs like this:
+
+```mermaid
+flowchart TD
+    init_terminal["init terminal"]
+    init_app["get initial model and command"]
+    create_quitflag["set up quit flag"]
+    make_channel["set up message channel"]
+    start_subs["start subscriptions"]
+    main_loop["main event loop"]
+    start_cmd["start command"]
+    draw_ui["draw UI"]
+    recv_msg["wait for message"]
+    update_model["update model"]
+    update_subs["update subscriptions"]
+    check_quit["check quit flag"]
+    break_loop["exit loop"]
+    restore_terminal["restore terminal"]
+    return_ok["finish"]
+
+    init_terminal --> init_app --> create_quitflag --> make_channel --> start_subs --> main_loop
+    main_loop --> start_cmd --> draw_ui --> recv_msg --> update_model
+    update_model --> update_subs --> check_quit
+    check_quit -- "yes" --> break_loop --> restore_terminal --> return_ok
+    check_quit -- "no" --> main_loop
+```
+
 ## Example application
 
 An example application can be found at https://github.com/jacobat/rustey_list
