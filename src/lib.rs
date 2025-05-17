@@ -130,7 +130,7 @@ where
 {
     let mut terminal = ratatui::init();
 
-    let (mut model, cmd) = app.init();
+    let (mut model, mut cmd) = app.init();
     let quit_program = QuitFlag::new();
     let (sender, receiver) = std::sync::mpsc::channel::<M>();
     let initial_subscriptions = app.subscriptions(&model);
@@ -145,12 +145,11 @@ where
         })
         .collect();
 
-    handle(cmd, sender.clone());
-
     loop {
+        handle(cmd, sender.clone());
         terminal.draw(|f| app.view(f, &mut model))?;
         let msg = receiver.recv().unwrap();
-        let cmd = app.update(&mut model, msg, &quit_program);
+        cmd = app.update(&mut model, msg, &quit_program);
         let new_subscriptions = app.subscriptions(&model);
         let mut new_subs: Vec<SubRec<M>> = new_subscriptions.into_iter().map(SubRec::new).collect();
         subs.retain_mut(|sub| {
@@ -167,8 +166,6 @@ where
             s.run(sender.clone());
         });
         subs.append(&mut new_subs);
-
-        handle(cmd, sender.clone());
 
         if quit_program.raised() {
             break;
