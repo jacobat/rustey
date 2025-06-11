@@ -157,7 +157,8 @@ flowchart TD
     make_channel["set up message channel"]
     start_subs["start subscriptions"]
     main_loop["main event loop"]
-    start_cmd["start command"]
+    start_cmd["start command if present"]
+    handle_cmd["handle command"]
     draw_ui["draw UI"]
     recv_msg["wait for message"]
     update_model["update model"]
@@ -166,12 +167,18 @@ flowchart TD
     break_loop["exit loop"]
     restore_terminal["restore terminal"]
     return_ok["finish"]
+    fetch_event["fetch event"]
+    map_event["map event"]
 
     init_terminal --> init_app --> create_quitflag --> make_channel --> start_subs --> main_loop
-    main_loop --> start_cmd --> draw_ui --> recv_msg --> update_model
+    main_loop --> start_cmd
+    main_loop --> draw_ui
+    start_cmd --> handle_cmd -- msg --> recv_msg
+    recv_msg --> update_model
     update_model --> update_subs --> check_quit
     check_quit -- "yes" --> break_loop --> restore_terminal --> return_ok
     check_quit -- "no" --> main_loop
+    fetch_event -- "event" --> map_event -- "msg" --> recv_msg
 ```
 
 ## Example application
