@@ -1,3 +1,4 @@
+use ratatui::crossterm::event::{self, Event, poll};
 use ratatui::prelude::*;
 use std::any::Any;
 use std::io;
@@ -63,6 +64,7 @@ impl<T> Sender<T> {
 
 pub enum Message<T: 'static> {
     UserEvent(T),
+    CrosstermEvent(Event),
 }
 
 pub type Subscriptions<M> = Vec<Box<dyn Subscription<M>>>;
@@ -76,6 +78,7 @@ pub trait Command<T>: Send + Sync {
 }
 pub trait RusteyApp<T, M> {
     fn init(&self) -> (T, Cmd<M>);
+    fn map_event(&self, model: &T, event: Event) -> Option<M>;
     fn update(&self, model: &mut T, msg: M, quit_program: &QuitFlag) -> Cmd<M>;
     fn subscriptions(&self, model: &T) -> Vec<Box<dyn Subscription<M>>>;
     fn view(&self, frame: &mut Frame, model: &mut T);
@@ -147,6 +150,20 @@ where
     }
 }
 
+fn start_event_thread<M: Send>(
+    sender: std::sync::mpsc::Sender<Message<M>>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        loop {
+            let poll = poll(std::time::Duration::from_millis(100));
+            if let Ok(true) = poll {
+                let event = event::read().unwrap();
+                let _ = sender.send(Message::CrosstermEvent(event));
+            }
+        }
+    })
+}
+
 pub fn run<T, M>(app: &dyn RusteyApp<T, M>) -> io::Result<()>
 where
     M: 'static + Send + Sync,
@@ -156,25 +173,35 @@ where
     let (mut model, mut cmd) = app.init();
     let quit_program = QuitFlag::new();
     let (sender, receiver) = std::sync::mpsc::channel::<Message<M>>();
-    let sender = Sender::new(sender);
+    let user_sender = Sender::new(sender.clone());
     let initial_subscriptions = app.subscriptions(&model);
+    let _event_reader = start_event_thread(sender);
 
     let subs: Vec<SubRec<M>> = initial_subscriptions.into_iter().map(SubRec::new).collect();
 
     let mut subs: Vec<SubRec<M>> = subs
         .into_iter()
         .map(|mut sub| {
-            sub.run(sender.dup());
+            sub.run(user_sender.dup());
             sub
         })
         .collect();
 
     loop {
-        handle(cmd, sender.dup());
+        handle(cmd, user_sender.dup());
         terminal.draw(|f| app.view(f, &mut model))?;
         let msg = receiver.recv().unwrap();
-        let Message::UserEvent(msg) = msg;
-        cmd = app.update(&mut model, msg, &quit_program);
+        let msg = match msg {
+            Message::CrosstermEvent(event) => app.map_event(&model, event),
+            Message::UserEvent(msg) => Some(msg),
+        };
+
+        cmd = if let Some(msg) = msg {
+            app.update(&mut model, msg, &quit_program)
+        } else {
+            None
+        };
+
         let new_subscriptions = app.subscriptions(&model);
         let mut new_subs: Vec<SubRec<M>> = new_subscriptions.into_iter().map(SubRec::new).collect();
         subs.retain_mut(|sub| {
@@ -188,7 +215,7 @@ where
             }
         });
         new_subs.iter_mut().for_each(|s| {
-            s.run(sender.dup());
+            s.run(user_sender.dup());
         });
         subs.append(&mut new_subs);
 
