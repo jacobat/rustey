@@ -40,16 +40,39 @@ impl QuitFlag {
     }
 }
 
-pub type Sender<T> = mpsc::Sender<T>;
+pub struct Sender<T: 'static> {
+    sender: mpsc::Sender<Message<T>>,
+}
+
+impl<T> Sender<T> {
+    fn new(sender: mpsc::Sender<Message<T>>) -> Self {
+        Self { sender }
+    }
+
+    pub fn send(&self, msg: T) {
+        let msg = Message::UserEvent(msg);
+        let _ = self.sender.send(msg);
+    }
+
+    fn dup(&self) -> Self {
+        Sender {
+            sender: self.sender.clone(),
+        }
+    }
+}
+
+pub enum Message<T: 'static> {
+    UserEvent(T),
+}
 
 pub type Subscriptions<M> = Vec<Box<dyn Subscription<M>>>;
 
 pub trait Subscription<T>: DynEq + Send + Sync {
-    fn run(&self, sender: mpsc::Sender<T>, alive: QuitFlag);
+    fn run(&self, sender: Sender<T>, alive: QuitFlag);
 }
 
 pub trait Command<T>: Send + Sync {
-    fn run(&self, sender: mpsc::Sender<T>);
+    fn run(&self, sender: Sender<T>);
 }
 pub trait RusteyApp<T, M> {
     fn init(&self) -> (T, Cmd<M>);
@@ -102,7 +125,7 @@ impl<T: Send + 'static> SubRec<T> {
         }
     }
 
-    pub fn run(&mut self, sender: mpsc::Sender<T>) {
+    pub fn run(&mut self, sender: Sender<T>) {
         let sub = self.sub.clone();
         let halt_flag = self.halt_flag.clone();
         self.thread = Some(thread::spawn(move || sub.run(sender, halt_flag)));
@@ -113,7 +136,7 @@ impl<T: Send + 'static> SubRec<T> {
     }
 }
 
-fn handle<M>(cmd: Cmd<M>, sender: mpsc::Sender<M>)
+fn handle<M>(cmd: Cmd<M>, sender: Sender<M>)
 where
     M: 'static + Send + Sync,
 {
@@ -132,7 +155,8 @@ where
 
     let (mut model, mut cmd) = app.init();
     let quit_program = QuitFlag::new();
-    let (sender, receiver) = std::sync::mpsc::channel::<M>();
+    let (sender, receiver) = std::sync::mpsc::channel::<Message<M>>();
+    let sender = Sender::new(sender);
     let initial_subscriptions = app.subscriptions(&model);
 
     let subs: Vec<SubRec<M>> = initial_subscriptions.into_iter().map(SubRec::new).collect();
@@ -140,15 +164,16 @@ where
     let mut subs: Vec<SubRec<M>> = subs
         .into_iter()
         .map(|mut sub| {
-            sub.run(sender.clone());
+            sub.run(sender.dup());
             sub
         })
         .collect();
 
     loop {
-        handle(cmd, sender.clone());
+        handle(cmd, sender.dup());
         terminal.draw(|f| app.view(f, &mut model))?;
         let msg = receiver.recv().unwrap();
+        let Message::UserEvent(msg) = msg;
         cmd = app.update(&mut model, msg, &quit_program);
         let new_subscriptions = app.subscriptions(&model);
         let mut new_subs: Vec<SubRec<M>> = new_subscriptions.into_iter().map(SubRec::new).collect();
@@ -163,7 +188,7 @@ where
             }
         });
         new_subs.iter_mut().for_each(|s| {
-            s.run(sender.clone());
+            s.run(sender.dup());
         });
         subs.append(&mut new_subs);
 
