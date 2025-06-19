@@ -65,7 +65,7 @@ impl RusteyApp<Model, Msg> for MyApp {
     }
 
     fn subscriptions(&self, _model: &Model) -> Subscriptions<Msg> {
-        vec![Box::new(UserInput {})]
+        vec![]
     }
 
     fn update(&self, model: &mut Model, msg: Msg, quit_flag: &QuitFlag) -> Cmd<Msg> {
@@ -90,42 +90,17 @@ impl RusteyApp<Model, Msg> for MyApp {
         let paragraph = Paragraph::new(text).block(Block::default().borders(Borders::ALL));
         frame.render_widget(paragraph, frame.area());
     }
-}
 
-#[derive(Debug, PartialEq)]
-pub struct UserInput {}
-
-impl UserInput {
-    fn process_event(&self, sender: &Sender<Msg>) {
-        let event = event::read().unwrap();
+    fn map_event(&self, _model: &Model, event: Event) -> Option<Msg> {
         if let Event::Key(key) = event {
-            if let Some(msg) = self.map_key(key.code) {
-                let _ = sender.send(msg);
+            match key.code {
+                KeyCode::Char('+') => Some(Msg::Increment),
+                KeyCode::Char('-') => Some(Msg::Decrement),
+                KeyCode::Char('q') => Some(Msg::Quit),
+                _ => None,
             }
-        }
-    }
-
-    fn map_key(&self, key: KeyCode) -> Option<Msg> {
-        match key {
-            KeyCode::Char('+') => Some(Msg::Increment),
-            KeyCode::Char('-') => Some(Msg::Decrement),
-            KeyCode::Char('q') => Some(Msg::Quit),
-            _ => None,
-        }
-    }
-}
-
-impl Subscription<Msg> for UserInput {
-    fn run(&self, sender: Sender<Msg>, halt_flag: QuitFlag) {
-        loop {
-            if halt_flag.raised() {
-                break;
-            }
-
-            let poll = poll(Duration::from_millis(50));
-            if let Ok(true) = poll {
-                self.process_event(&sender);
-            }
+        } else {
+            None
         }
     }
 }
