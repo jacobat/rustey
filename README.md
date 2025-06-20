@@ -120,6 +120,40 @@ fn main() -> std::io::Result<()> {
 And with this we have a full implementation of a TUI counter application in
 less than 100 lines of code.
 
+## Commands
+
+Commands are one off tasks that are executed asynchronously in another thread.
+This is useful for tasks that take a long time to complete, such as network
+requests or file I/O.
+
+To use commands first define a command type that implements the `Command<T>`
+trait. Use the `sender` to send a message to the update function:
+
+```rust
+struct SomeTask {}
+
+impl Command<Msg> for SomeTask {
+    fn run(&self, sender: rustey::Sender<Msg>) {
+        sender.send(Msg::TaskResult);
+    }
+}
+```
+
+With this task definition in place the task can now be initiated from either
+the `init` function or the `update` function simply by returning the command
+from either:
+
+```rust
+    fn update(&self, model: &mut Model, msg: Msg, quit_flag: &QuitFlag) -> Cmd<Msg> {
+        match msg {
+            Msg::DoTask => Cmd::Some(Box::new(SomeTask {})),
+            ...
+        }
+    }
+```
+
+Rustey will take care of running the command when it's returned.
+
 ## Run loop
 
 The main loop is initialized and runs like this:
